@@ -1,0 +1,30 @@
+name: Build Manifest
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * *"   # รันทุกวัน 11:00 น. ไทย
+
+jobs:
+  manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build manifest file with hash
+        run: |
+          python3 - <<'PY'
+import os,hashlib,json,pathlib
+root=pathlib.Path(".")
+entries=[]
+for p in sorted(root.rglob("*")):
+    if p.is_file() and ".git" not in p.parts and not p.name.endswith(".SIGN"):
+        h=hashlib.sha256(p.read_bytes()).hexdigest()
+        entries.append({"path":str(p),"sha256":h})
+manifest={"system":"MaMeeFarm Proof-of-Work Farm Data","entries":entries}
+open("MANIFEST.json","w").write(json.dumps(manifest,indent=2))
+PY
+      - name: Commit manifest
+        run: |
+          git config user.name "manifest-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add MANIFEST.json
+          git diff --cached --quiet || (git commit -m "update: manifest" && git push)
